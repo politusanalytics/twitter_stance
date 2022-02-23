@@ -3,12 +3,9 @@ import torch
 # import pandas as pd
 
 class TransformersData(torch.utils.data.Dataset):
-    def __init__(self, examples, label_list, tokenizer, max_seq_length=512, has_token_type_ids=False, with_label=True):
+    def __init__(self, examples, label_map, tokenizer, max_seq_length=512, has_token_type_ids=False, with_label=True):
         self.examples = examples
-        self.label_list = label_list
-        label_map = {}
-        for (i, label) in enumerate(label_list):
-            label_map[label] = i
+        self.label_map = label_map
 
         self.label_map = label_map
         self.max_seq_length = max_seq_length
@@ -28,7 +25,7 @@ class TransformersData(torch.utils.data.Dataset):
             token_type_ids = torch.tensor(encoded_input["token_type_ids"], dtype=torch.long)
 
         if self.with_label:
-            if len(self.label_list) == 2:
+            if len(self.label_map) == 2:
                 label_ids = torch.FloatTensor([self.label_map[ex[1]]])
             else:
                 label_ids = torch.tensor(self.label_map[ex[1]], dtype=torch.long)
@@ -53,7 +50,7 @@ def get_examples(filename, with_label=True):
         line = json.loads(line)
         text = str(line["text"])
         if with_label:
-            label = str(int(line["label"]))
+            label = str(line["label"])
             examples.append([text, label])
         else:
             examples.append([text])

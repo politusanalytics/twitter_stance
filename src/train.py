@@ -47,6 +47,12 @@ torch.manual_seed(seed)
 if device.type == "cuda":
     torch.cuda.manual_seed_all(seed)
 
+label_to_idx = {}
+idx_to_label = {}
+for (i, label) in enumerate(label_list):
+    label_to_idx[label] = i
+    idx_to_label[i] = label
+
 tokenizer = None
 model_path = "{}_{}_{}_{:.2f}_{}.pt".format(pretrained_transformers_model.replace("/", "_"), max_seq_length, batch_size, dev_ratio, seed)
 criterion = torch.nn.BCEWithLogitsLoss() if len(label_list) == 2 else torch.nn.CrossEntropyLoss(ignore_index=-1)
@@ -66,7 +72,7 @@ def test_model(encoder, classifier, dataloader):
 
         with torch.no_grad():
             out = classifier(embeddings)
-            tmp_eval_loss = criterion(out, label_ids.view(-1))
+            tmp_eval_loss = criterion(out, label_ids)
 
         eval_loss += tmp_eval_loss.mean().item()
 
@@ -109,11 +115,11 @@ def model_predict(encoder, classifier, dataloader):
 
         if len(label_list) == 2:
             curr_preds = torch.sigmoid(out).detach().cpu().numpy().flatten()
-            curr_preds = [int(x >= 0.5) for x in curr_preds]
+            curr_preds = [idx_to_label[int(x >= 0.5)] for x in curr_preds]
             all_preds += curr_preds
         else:
             out = out.detach().cpu().numpy()
-            all_preds += np.argmax(out, axis=1).tolist()
+            all_preds += [idx_to_label[pred] for pred in np.argmax(out, axis=1).tolist()]
 
     return all_preds
 
@@ -125,9 +131,9 @@ def build_model(train_examples, dev_examples, pretrained_model, n_epochs=10, cur
     encoder = AutoModel.from_pretrained(pretrained_model)
     classifier = torch.nn.Linear(encoder.config.hidden_size, 1 if len(label_list) == 2 else len(label_list))
 
-    train_dataset = TransformersData(train_examples, label_list, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
+    train_dataset = TransformersData(train_examples, label_to_idx, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
     train_dataloader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-    dev_dataset = TransformersData(dev_examples, label_list, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
+    dev_dataset = TransformersData(dev_examples, label_to_idx, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
     dev_dataloader = DataLoader(dataset=dev_dataset, batch_size=batch_size)
 
 
@@ -162,7 +168,7 @@ def build_model(train_examples, dev_examples, pretrained_model, n_epochs=10, cur
                 embeddings = encoder(input_ids, attention_mask=input_mask)[1]
 
             out = classifier(embeddings)
-            loss = criterion(out, label_ids.view(-1))
+            loss = criterion(out, label_ids)
 
             loss.backward()
             global_step += 1
@@ -234,7 +240,7 @@ if __name__ == '__main__':
 
     if predict:
         test_examples = get_examples(test_filename, with_label=False)
-        test_dataset = TransformersData(test_examples, label_list, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids, with_label=False)
+        test_dataset = TransformersData(test_examples, label_to_idx, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids, with_label=False)
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=batch_size)
 
         all_preds = model_predict(encoder, classifier, test_dataloader)
@@ -248,7 +254,7 @@ if __name__ == '__main__':
 
     else:
         test_examples = get_examples(test_filename)
-        test_dataset = TransformersData(test_examples, label_list, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
+        test_dataset = TransformersData(test_examples, label_to_idx, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=batch_size)
 
         result, test_loss = test_model(encoder, classifier, test_dataloader)
