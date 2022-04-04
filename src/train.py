@@ -34,7 +34,7 @@ dev_metric = "f1_macro"
 num_epochs = 30
 dev_set_splitting = "random" # random, or any filename
 use_gpu = True
-device_ids = [0, 1, 2, 3, 4, 5, 6, 7]
+device_ids = [0, 1, 2, 3, 4, 5, 6, 7] # if not multi-gpu then pass a single number such as [0]
 
 
 if use_gpu and torch.cuda.is_available():
@@ -42,6 +42,7 @@ if use_gpu and torch.cuda.is_available():
 else:
     device = torch.device("cpu")
 
+random.seed(seed)
 np.random.seed(seed)
 torch.manual_seed(seed)
 if device.type == "cuda":
@@ -138,7 +139,7 @@ def build_model(train_examples, dev_examples, pretrained_model, n_epochs=10, cur
 
 
     classifier.to(device)
-    if torch.cuda.device_count() > 1 and device.type == "cuda":
+    if torch.cuda.device_count() > 1 and device.type == "cuda" and len(device_ids) > 1:
         encoder = torch.nn.DataParallel(encoder, device_ids=device_ids)
     encoder.to(device)
 
@@ -202,11 +203,11 @@ def build_model(train_examples, dev_examples, pretrained_model, n_epochs=10, cur
         if result[dev_metric] > best_score:
             print("Saving model!")
             torch.save(classifier.state_dict(), repo_path + "/models/classifier_" + curr_model_path)
-            # encoder_to_save = encoder.module if hasattr(encoder, 'module') else encoder  # To handle multi gpu
-            torch.save(encoder.state_dict(), repo_path + "/models/encoder_" + curr_model_path)
+            encoder_to_save = encoder.module if hasattr(encoder, 'module') else encoder  # To handle multi gpu
+            torch.save(encoder_to_save.state_dict(), repo_path + "/models/encoder_" + curr_model_path)
             best_score = result[dev_metric]
 
-        print("========================================================================")
+        print("------------------------------------------------------------------------")
 
     return encoder, classifier
 
@@ -224,17 +225,21 @@ if __name__ == '__main__':
 
     if not only_test:
         encoder, classifier = build_model(train_examples, dev_examples, pretrained_transformers_model, n_epochs=num_epochs, curr_model_path=model_path)
+        classifier.load_state_dict(torch.load(repo_path + "/models/classifier_" + model_path))
+        encoder.module.load_state_dict(torch.load(repo_path + "/models/encoder_" + model_path))
     else:
         tokenizer = AutoTokenizer.from_pretrained(pretrained_transformers_model)
         encoder = AutoModel.from_pretrained(pretrained_transformers_model)
         classifier = torch.nn.Linear(encoder.config.hidden_size, 1 if len(label_list) == 2 else len(label_list))
-        if torch.cuda.device_count() > 1 and device.type == "cuda":
+
+        classifier.to(device)
+        encoder.to(device)
+        classifier.load_state_dict(torch.load(repo_path + "/models/classifier_" + model_path), map_location=device)
+        encoder.load_state_dict(torch.load(repo_path + "/models/encoder_" + model_path), map_location=device)
+
+        if torch.cuda.device_count() > 1 and device.type == "cuda" and len(device_ids) > 1:
             encoder = torch.nn.DataParallel(encoder, device_ids=device_ids)
 
-    classifier.load_state_dict(torch.load(repo_path + "/models/classifier_" + model_path))
-    classifier.to(device)
-    encoder.load_state_dict(torch.load(repo_path + "/models/encoder_" + model_path))
-    encoder.to(device)
     encoder.eval()
     classifier.eval()
 
