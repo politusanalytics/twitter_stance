@@ -35,7 +35,21 @@ num_epochs = 30
 dev_set_splitting = "random" # random, or any filename
 use_gpu = True
 device_ids = [0, 1, 2, 3, 4, 5, 6, 7] # if not multi-gpu then pass a single number such as [0]
+positive_threshold = 0.5 # Outputted probabilities bigger than this number is considered positive in case of binary classifications
+return_probabilities = False # whether or not to return probabilities instead of labels when predicting
+model_path = "{}_{}_{}_{:.2f}_{}.pt".format(pretrained_transformers_model.replace("/", "_"), max_seq_length, batch_size, dev_ratio, seed)
 
+# optional, used in testing
+classifier_path = ""# repo_path + "/models/best_models/20220528_classifier_sentence-transformers_paraphrase-xlm-r-multilingual-v1_44.pt"
+encoder_path = ""#repo_path + "/models/best_models/20220528_encoder_sentence-transformers_paraphrase-xlm-r-multilingual-v1_44.pt"
+
+if not classifier_path:
+    classifier_path =  repo_path + "/models/classifier_" + model_path
+if not encoder_path:
+    encoder_path =  repo_path + "/models/encoder_" + model_path
+
+if return_probabilities:
+    from scipy.special import softmax
 
 if use_gpu and torch.cuda.is_available():
     device = torch.device("cuda:%d"%(device_ids[0]))
@@ -55,7 +69,6 @@ for (i, label) in enumerate(label_list):
     idx_to_label[i] = label
 
 tokenizer = None
-model_path = "{}_{}_{}_{:.2f}_{}.pt".format(pretrained_transformers_model.replace("/", "_"), max_seq_length, batch_size, dev_ratio, seed)
 criterion = torch.nn.BCEWithLogitsLoss() if len(label_list) == 2 else torch.nn.CrossEntropyLoss(ignore_index=-1)
 
 def test_model(encoder, classifier, dataloader):
@@ -79,7 +92,7 @@ def test_model(encoder, classifier, dataloader):
 
         if len(label_list) == 2:
             curr_preds = torch.sigmoid(out).detach().cpu().numpy().flatten()
-            curr_preds = [int(x >= 0.5) for x in curr_preds]
+            curr_preds = [int(x >= positive_threshold) for x in curr_preds]
             all_preds += curr_preds
         else:
             out = out.detach().cpu().numpy()
@@ -91,11 +104,15 @@ def test_model(encoder, classifier, dataloader):
         nb_eval_steps += 1
 
     precision, recall, f1, _ = precision_recall_fscore_support(all_label_ids, all_preds, average="macro", labels=list(range(0,len(label_list))))
+    precision_micro, recall_micro, f1_micro, _ = precision_recall_fscore_support(all_label_ids, all_preds, average="micro", labels=list(range(0,len(label_list))))
     mcc = matthews_corrcoef(all_preds, all_label_ids)
     eval_loss /= nb_eval_steps
     result = {"precision_macro": precision,
               "recall_macro": recall,
               "f1_macro": f1,
+              "precision_micro": precision_micro,
+              "recall_micro": recall_micro,
+              "f1_micro": f1_micro,
               "mcc": mcc}
 
     return result, eval_loss
@@ -116,11 +133,19 @@ def model_predict(encoder, classifier, dataloader):
 
         if len(label_list) == 2:
             curr_preds = torch.sigmoid(out).detach().cpu().numpy().flatten()
-            curr_preds = [idx_to_label[int(x >= 0.5)] for x in curr_preds]
+            if return_probabilities:
+                curr_preds = [round(float(x), 4) for x in curr_preds]
+            else:
+                curr_preds = [idx_to_label[int(x >= positive_threshold)] for x in curr_preds]
             all_preds += curr_preds
+
         else:
             out = out.detach().cpu().numpy()
-            all_preds += [idx_to_label[pred] for pred in np.argmax(out, axis=1).tolist()]
+            if return_probabilities:
+                curr_preds = [probs for probs in softmax(out, axis=1).tolist()] # a list of lists(of probabilities)
+            else:
+                curr_preds = [idx_to_label[pred] for pred in np.argmax(out, axis=1).tolist()] # a list of labels
+            all_preds += curr_preds
 
     return all_preds
 
@@ -234,8 +259,8 @@ if __name__ == '__main__':
 
         classifier.to(device)
         encoder.to(device)
-        classifier.load_state_dict(torch.load(repo_path + "/models/classifier_" + model_path), map_location=device)
-        encoder.load_state_dict(torch.load(repo_path + "/models/encoder_" + model_path), map_location=device)
+        classifier.load_state_dict(torch.load(classifier_path, map_location=device))
+        encoder.load_state_dict(torch.load(encoder_path, map_location=device))
 
         if torch.cuda.device_count() > 1 and device.type == "cuda" and len(device_ids) > 1:
             encoder = torch.nn.DataParallel(encoder, device_ids=device_ids)
