@@ -14,16 +14,30 @@ import sys
 # INPUTS
 pretrained_transformers_model = sys.argv[1] # For example: "xlm-roberta-base"
 seed = int(sys.argv[2])
-max_seq_length = int(sys.argv[3]) # max length of a document (in tokens)
-batch_size = int(sys.argv[4])
-dev_ratio = float(sys.argv[5])
+task_name = sys.argv[3]
 
 # MUST SET THESE VALUES
-repo_path = "/path/to/this/repo"
-train_filename = repo_path + "/data/train_examples.json" # sys.argv[1]
-test_filename = repo_path + "/data/test_examples.json"
-# test_filename = repo_path + "/data/examples_to_be_predicted.json"
-label_list = ["category1", "category2", "category3"]
+max_seq_length = 64
+batch_size = 64
+dev_ratio = 0.1
+
+repo_path = "/home/username/twitter_stance"
+
+if task_name == "erdogan_relevant":
+    train_filename = repo_path + "/data/erdogan_stance/adjudicated_20230126/train.json"
+    test_filename = repo_path + "/data/erdogan_stance/adjudicated_20230126/test.json"
+    label_list = ["relevant", "irrelevant"]
+    label_to_idx = {"1": 0, "2": 0, "3": 0, "4": 1}
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+elif task_name == "erdogan_stance":
+    train_filename = repo_path + "/data/erdogan_stance/adjudicated_20230126/train.json"
+    test_filename = repo_path + "/data/erdogan_stance/adjudicated_20230126/test.json"
+    label_list = ["pro", "against", "neutral"]
+    label_to_idx = {"1": 0, "2": 1, "3": 2, "4": -1}
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+else:
+    raise("Task name {} is not known!".format(task_name))
+
 only_test = False # Only perform testing
 predict = False # Predict instead of testing
 has_token_type_ids = False
@@ -37,7 +51,7 @@ use_gpu = True
 device_ids = [0, 1, 2, 3, 4, 5, 6, 7] # if not multi-gpu then pass a single number such as [0]
 positive_threshold = 0.5 # Outputted probabilities bigger than this number is considered positive in case of binary classifications
 return_probabilities = False # whether or not to return probabilities instead of labels when predicting
-model_path = "{}_{}_{}_{:.2f}_{}.pt".format(pretrained_transformers_model.replace("/", "_"), max_seq_length, batch_size, dev_ratio, seed)
+model_path = "{}_{}_{}.pt".format(pretrained_transformers_model.replace("/", "_"), task_name, seed)
 
 # optional, used in testing
 classifier_path = ""# repo_path + "/models/best_models/20220528_classifier_sentence-transformers_paraphrase-xlm-r-multilingual-v1_44.pt"
@@ -62,11 +76,11 @@ torch.manual_seed(seed)
 if device.type == "cuda":
     torch.cuda.manual_seed_all(seed)
 
-label_to_idx = {}
-idx_to_label = {}
-for (i, label) in enumerate(label_list):
-    label_to_idx[label] = i
-    idx_to_label[i] = label
+# label_to_idx = {}
+# idx_to_label = {}
+# for (i, label) in enumerate(label_list):
+#     label_to_idx[label] = i
+#     idx_to_label[i] = label
 
 tokenizer = None
 criterion = torch.nn.BCEWithLogitsLoss() if len(label_list) == 2 else torch.nn.CrossEntropyLoss(ignore_index=-1)
@@ -157,9 +171,9 @@ def build_model(train_examples, dev_examples, pretrained_model, n_epochs=10, cur
     encoder = AutoModel.from_pretrained(pretrained_model)
     classifier = torch.nn.Linear(encoder.config.hidden_size, 1 if len(label_list) == 2 else len(label_list))
 
-    train_dataset = TransformersData(train_examples, label_to_idx, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
+    train_dataset = TransformersData(train_examples, label_list, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
     train_dataloader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-    dev_dataset = TransformersData(dev_examples, label_to_idx, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
+    dev_dataset = TransformersData(dev_examples, label_list, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
     dev_dataloader = DataLoader(dataset=dev_dataset, batch_size=batch_size)
 
 
@@ -238,15 +252,15 @@ def build_model(train_examples, dev_examples, pretrained_model, n_epochs=10, cur
 
 if __name__ == '__main__':
     if dev_set_splitting == "random":
-        train_examples = get_examples(train_filename)
+        train_examples = get_examples(train_filename, label_map=label_to_idx)
         random.shuffle(train_examples)
         dev_split = int(len(train_examples) * dev_ratio)
         dev_examples = train_examples[:dev_split]
         train_examples = train_examples[dev_split:]
     else: # it's a custom filename
-        train_examples = get_examples(train_filename)
+        train_examples = get_examples(train_filename, label_map=label_to_idx)
         random.shuffle(train_examples)
-        dev_examples = get_examples(dev_set_splitting)
+        dev_examples = get_examples(dev_set_splitting, label_map=label_to_idx)
 
     if not only_test:
         encoder, classifier = build_model(train_examples, dev_examples, pretrained_transformers_model, n_epochs=num_epochs, curr_model_path=model_path)
@@ -269,8 +283,8 @@ if __name__ == '__main__':
     classifier.eval()
 
     if predict:
-        test_examples = get_examples(test_filename, with_label=False)
-        test_dataset = TransformersData(test_examples, label_to_idx, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids, with_label=False)
+        test_examples = get_examples(test_filename, label_map=label_to_idx, with_label=False)
+        test_dataset = TransformersData(test_examples, label_list, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids, with_label=False)
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=batch_size)
 
         all_preds = model_predict(encoder, classifier, test_dataloader)
@@ -283,8 +297,8 @@ if __name__ == '__main__':
                 g.write(json.dumps(t) + "\n")
 
     else:
-        test_examples = get_examples(test_filename)
-        test_dataset = TransformersData(test_examples, label_to_idx, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
+        test_examples = get_examples(test_filename, label_map=label_to_idx)
+        test_dataset = TransformersData(test_examples, label_list, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=batch_size)
 
         result, test_loss = test_model(encoder, classifier, test_dataloader)
