@@ -71,19 +71,19 @@ def model_predict(batch):
 
     return preds
 
+def preprocess(text): # Preprocess text (username and link placeholders)
+    new_text = []
+    for t in text.split(" "):
+        t = '@user' if t.startswith('@') and len(t) > 1 else t
+        t = 'http' if t.startswith('http') else t
+        new_text.append(t)
+    return " ".join(new_text)
+
 # !!!IMPORTANT!!!
 # Change this according to the json line format.
 # Here the format for every line is like:
 # {id_str: text}
 def read_json_line(data):
-    def preprocess(text): # Preprocess text (username and link placeholders)
-        new_text = []
-        for t in text.split(" "):
-            t = '@user' if t.startswith('@') and len(t) > 1 else t
-            t = 'http' if t.startswith('http') else t
-            new_text.append(t)
-        return " ".join(new_text)
-
     id_str = list(data.keys())[0]
     text = preprocess(data[id_str])
 
@@ -106,7 +106,7 @@ if __name__ == "__main__":
         curr_batch = []
         for i, tweet in enumerate(tweets_to_predict):
             id_str = tweet["_id"]
-            text = tweet["text"]
+            text = preprocess(tweet["text"])
 
             if len(text) > 0:
                 curr_batch.append({"_id": id_str, "text": text})

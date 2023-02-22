@@ -23,12 +23,19 @@ repo_path = "/path/to/this/repo"
 train_filename = repo_path + "/data/train_examples.json" # sys.argv[1]
 test_filename = repo_path + "/data/test_examples.json"
 # test_filename = repo_path + "/data/examples_to_be_predicted.json"
-label_list = ["category1", "category2", "category3"]
 only_test = False # Only perform testing
 predict = False # Predict instead of testing
 has_token_type_ids = False
 
+label_list = ["category1", "category2", "category3"]
+label_to_idx = {}
+idx_to_label = {}
+for (i, label) in enumerate(label_list):
+    label_to_idx[label] = i
+    idx_to_label[i] = label
+
 # SETTINGS
+binary = len(label_list) == 2
 learning_rate = 2e-5
 dev_metric = "f1_macro"
 num_epochs = 30
@@ -62,14 +69,8 @@ torch.manual_seed(seed)
 if device.type == "cuda":
     torch.cuda.manual_seed_all(seed)
 
-label_to_idx = {}
-idx_to_label = {}
-for (i, label) in enumerate(label_list):
-    label_to_idx[label] = i
-    idx_to_label[i] = label
-
 tokenizer = None
-criterion = torch.nn.BCEWithLogitsLoss() if len(label_list) == 2 else torch.nn.CrossEntropyLoss(ignore_index=-1)
+criterion = torch.nn.BCEWithLogitsLoss() if binary else torch.nn.CrossEntropyLoss(ignore_index=-1)
 
 def test_model(encoder, classifier, dataloader):
     all_preds = []
@@ -90,7 +91,7 @@ def test_model(encoder, classifier, dataloader):
 
         eval_loss += tmp_eval_loss.mean().item()
 
-        if len(label_list) == 2:
+        if binary:
             curr_preds = torch.sigmoid(out).detach().cpu().numpy().flatten()
             curr_preds = [int(x >= positive_threshold) for x in curr_preds]
             all_preds += curr_preds
@@ -131,7 +132,7 @@ def model_predict(encoder, classifier, dataloader):
         with torch.no_grad():
             out = classifier(embeddings)
 
-        if len(label_list) == 2:
+        if binary:
             curr_preds = torch.sigmoid(out).detach().cpu().numpy().flatten()
             if return_probabilities:
                 curr_preds = [round(float(x), 4) for x in curr_preds]
@@ -155,11 +156,11 @@ def build_model(train_examples, dev_examples, pretrained_model, n_epochs=10, cur
 
     tokenizer = AutoTokenizer.from_pretrained(pretrained_model)
     encoder = AutoModel.from_pretrained(pretrained_model)
-    classifier = torch.nn.Linear(encoder.config.hidden_size, 1 if len(label_list) == 2 else len(label_list))
+    classifier = torch.nn.Linear(encoder.config.hidden_size, 1 if binary else len(label_list))
 
-    train_dataset = TransformersData(train_examples, label_to_idx, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
+    train_dataset = TransformersData(train_examples, label_to_idx, tokenizer, binary=binary, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
     train_dataloader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-    dev_dataset = TransformersData(dev_examples, label_to_idx, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
+    dev_dataset = TransformersData(dev_examples, label_to_idx, tokenizer, binary=binary, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
     dev_dataloader = DataLoader(dataset=dev_dataset, batch_size=batch_size)
 
 
@@ -251,11 +252,14 @@ if __name__ == '__main__':
     if not only_test:
         encoder, classifier = build_model(train_examples, dev_examples, pretrained_transformers_model, n_epochs=num_epochs, curr_model_path=model_path)
         classifier.load_state_dict(torch.load(repo_path + "/models/classifier_" + model_path))
-        encoder.module.load_state_dict(torch.load(repo_path + "/models/encoder_" + model_path))
+        if torch.cuda.device_count() > 1 and device.type == "cuda" and len(device_ids) > 1:
+            encoder.module.load_state_dict(torch.load(repo_path + "/models/encoder_" + model_path))
+        else:
+            encoder.load_state_dict(torch.load(repo_path + "/models/encoder_" + model_path))
     else:
         tokenizer = AutoTokenizer.from_pretrained(pretrained_transformers_model)
         encoder = AutoModel.from_pretrained(pretrained_transformers_model)
-        classifier = torch.nn.Linear(encoder.config.hidden_size, 1 if len(label_list) == 2 else len(label_list))
+        classifier = torch.nn.Linear(encoder.config.hidden_size, 1 if binary else len(label_list))
 
         classifier.to(device)
         encoder.to(device)
@@ -270,7 +274,7 @@ if __name__ == '__main__':
 
     if predict:
         test_examples = get_examples(test_filename, with_label=False)
-        test_dataset = TransformersData(test_examples, label_to_idx, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids, with_label=False)
+        test_dataset = TransformersData(test_examples, label_to_idx, tokenizer, binary=binary, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids, with_label=False)
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=batch_size)
 
         all_preds = model_predict(encoder, classifier, test_dataloader)
@@ -284,7 +288,7 @@ if __name__ == '__main__':
 
     else:
         test_examples = get_examples(test_filename)
-        test_dataset = TransformersData(test_examples, label_to_idx, tokenizer, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
+        test_dataset = TransformersData(test_examples, label_to_idx, tokenizer, binary=binary, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=batch_size)
 
         result, test_loss = test_model(encoder, classifier, test_dataloader)
