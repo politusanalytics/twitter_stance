@@ -3,9 +3,10 @@ import torch
 # import pandas as pd
 
 class TransformersData(torch.utils.data.Dataset):
-    def __init__(self, examples, label_list, tokenizer, max_seq_length=512, has_token_type_ids=False, with_label=True):
+    def __init__(self, examples, label_map, tokenizer, binary=False, max_seq_length=512, has_token_type_ids=False, with_label=True):
         self.examples = examples
-        self.label_list = label_list
+        self.label_map = label_map
+        self.binary = binary
 
         self.max_seq_length = max_seq_length
         self.tokenizer = tokenizer
@@ -24,8 +25,8 @@ class TransformersData(torch.utils.data.Dataset):
             token_type_ids = torch.tensor(encoded_input["token_type_ids"], dtype=torch.long)
 
         if self.with_label:
-            if len(self.label_list) == 2:
-                label_ids = torch.FloatTensor([ex[1]])
+            if self.binary:
+                label_ids = torch.FloatTensor([self.label_map[ex[1]]])
             else:
                 label_ids = torch.tensor(ex[1], dtype=torch.long)
 
