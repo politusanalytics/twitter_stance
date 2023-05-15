@@ -1,4 +1,8 @@
 data/
 models/
 *.log
+rel*
+stance*
+logs/
+src/imamoglu_relevant.py
 *~

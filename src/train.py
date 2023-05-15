@@ -15,6 +15,7 @@ import sys
 pretrained_transformers_model = sys.argv[1] # For example: "xlm-roberta-base"
 seed = int(sys.argv[2])
 task_name = sys.argv[3]
+device_ids = [int(i) for i in sys.argv[4].split(",")]
 
 # MUST SET THESE VALUES
 max_seq_length = 64
@@ -35,6 +36,18 @@ elif task_name == "erdogan_stance":
     label_list = ["pro", "against", "neutral"]
     label_to_idx = {"1": 0, "2": 1, "3": 2, "4": -1}
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+elif task_name == "kk_relevant":
+    train_filename = repo_path + "/data/kilicdar_stance/3annotator_20230320/train.json"
+    test_filename = repo_path + "/data/kilicdar_stance/3annotator_20230320/test.json"
+    label_list = ["relevant", "irrelevant"]
+    label_to_idx = {"1": 0, "2": 0, "3": 0, "4": 1}
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+elif task_name == "kk_stance":
+    train_filename = repo_path + "/data/kilicdar_stance/3annotator_20230320/train.json"
+    test_filename = repo_path + "/data/kilicdar_stance/3annotator_20230320/test.json"
+    label_list = ["pro", "against", "neutral"]
+    label_to_idx = {"1": 0, "2": 1, "3": 2, "4": -1}
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
 else:
     raise("Task name {} is not known!".format(task_name))
 
@@ -48,7 +61,7 @@ dev_metric = "f1_macro"
 num_epochs = 30
 dev_set_splitting = "random" # random, or any filename
 use_gpu = True
-device_ids = [0, 1, 2, 3, 4, 5, 6, 7] # if not multi-gpu then pass a single number such as [0]
+# device_ids = [0, 1, 2, 3, 4, 5, 6, 7] # if not multi-gpu then pass a single number such as [0]
 positive_threshold = 0.5 # Outputted probabilities bigger than this number is considered positive in case of binary classifications
 return_probabilities = False # whether or not to return probabilities instead of labels when predicting
 model_path = "{}_{}_{}.pt".format(pretrained_transformers_model.replace("/", "_"), task_name, seed)
