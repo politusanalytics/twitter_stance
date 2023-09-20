@@ -125,6 +125,156 @@ elif task_name == "kk_stance":
     classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_kk_stance_58.pt".format(repo_path)
     query = {"has_kk_keyword": True, "kk_relevant": "relevant", "kk_stance": None, "text": {"$nin": ["", None]}}
 
+elif task_name == "serdil_relevant":
+    label_list = ["relevant", "irrelevant"]
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+    encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_serdil_relevant_51.pt".format(repo_path)
+    classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_serdil_relevant_51.pt".format(repo_path)
+
+    # update has_kk_keyword field first
+    if database_or_input_filename == "database":
+        reg_list = []
+        with open("{}/data/serdil_stance/serdil_keywords_only_name.txt".format(repo_path), "r", encoding="utf-8") as f:
+            for line in f:
+                if line:
+                    reg_list.append(line[:-1])
+            reg = re.compile("|".join(reg_list), flags=re.S|re.I)
+            #reg = "|".join(reg_list)
+
+        http_reg = re.compile(r"^(?!.*(https:|http:|www\.))", flags=re.S|re.I)
+
+        keyword_true_query = {"has_serdil_keyword": None,
+                              "$and": [{"text": {"$regex": http_reg}},
+                                       {"text": {"$regex": reg}}]}
+        tweet_col.update_many(keyword_true_query, {"$set": {"has_serdil_keyword": True}})
+        keyword_false_query = {"has_serdil_keyword": None,
+                               "$or": [{"text": {"$not": {"$regex": http_reg}}},
+                                       {"text": {"$not": {"$regex": reg}}}]}
+        tweet_col.update_many(keyword_false_query, {"$set": {"has_serdil_keyword": False}})
+
+    query = {"has_serdil_keyword": True, "serdil_relevant": None, "text": {"$nin": ["", None]}}
+    # query = {"kadikoy_tweets_to_be_processed": True, "has_serdil_keyword": True, "serdil_relevant": None, "text": {"$nin": ["", None]}}
+
+elif task_name == "serdil_stance":
+    label_list = ["pro", "against", "neutral"]
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+    encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_serdil_stance_58.pt".format(repo_path)
+    classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_serdil_stance_58.pt".format(repo_path)
+    # query = {"has_serdil_keyword": True, "serdil_relevant": "relevant", "serdil_stance": None, "text": {"$nin": ["", None]}}
+    query = {"kadikoy_tweets_to_be_processed": True, "has_serdil_keyword": True, "serdil_relevant": "relevant", "serdil_stance": None, "text": {"$nin": ["", None]}}
+
+elif task_name == "imamoglu_relevant":
+    label_list = ["relevant", "irrelevant"]
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+    # encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_imamoglu_relevant_53.pt".format(repo_path)
+    # classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_imamoglu_relevant_53.pt".format(repo_path)
+    encoder_path = "{}/models/best_models/2023-08-29_imamoglu/encoder_dbmdz_bert-base-turkish-128k-cased_imamoglu_relevant_46.pt".format(repo_path)
+    classifier_path = "{}/models/best_models/2023-08-29_imamoglu/classifier_dbmdz_bert-base-turkish-128k-cased_imamoglu_relevant_46.pt".format(repo_path)
+
+    # update has_kk_keyword field first
+    if database_or_input_filename == "database":
+        reg_list = []
+        with open("{}/data/imamoglu_stance/imamoglu_keywords.txt".format(repo_path), "r", encoding="utf-8") as f:
+            for line in f:
+                if line:
+                    reg_list.append(line[:-1])
+            reg = re.compile("|".join(reg_list), flags=re.S|re.I)
+            #reg = "|".join(reg_list)
+
+        http_reg = re.compile(r"^(?!.*(https:|http:|www\.))", flags=re.S|re.I)
+
+        keyword_true_query = {"has_imamoglu_keyword": None,
+                              "$and": [{"text": {"$regex": http_reg}},
+                                       {"text": {"$regex": reg}}]}
+        tweet_col.update_many(keyword_true_query, {"$set": {"has_imamoglu_keyword": True}})
+        keyword_false_query = {"has_imamoglu_keyword": None,
+                               "$or": [{"text": {"$not": {"$regex": http_reg}}},
+                                       {"text": {"$not": {"$regex": reg}}}]}
+        tweet_col.update_many(keyword_false_query, {"$set": {"has_imamoglu_keyword": False}})
+
+    query = {"has_imam_keyword": True, "imamoglu_relevant": None, "text": {"$nin": ["", None]}}
+
+elif task_name == "imamoglu_stance":
+    label_list = ["pro", "against", "neutral"]
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+    # encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_imamoglu_stance_57.pt".format(repo_path)
+    # classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_imamoglu_stance_57.pt".format(repo_path)
+    encoder_path = "{}/models/best_models/2023-08-29_imamoglu/encoder_dbmdz_bert-base-turkish-128k-cased_imamoglu_stance_52.pt".format(repo_path)
+    classifier_path = "{}/models/best_models/2023-08-29_imamoglu/classifier_dbmdz_bert-base-turkish-128k-cased_imamoglu_stance_52.pt".format(repo_path)
+    query = {"has_imam_keyword": True, "imamoglu_relevant": "relevant", "imamoglu_stance": None, "text": {"$nin": ["", None]}}
+
+elif task_name == "hilmi_relevant":
+    label_list = ["relevant", "irrelevant"]
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+    encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_hilmi_relevant_53.pt".format(repo_path)
+    classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_hilmi_relevant_53.pt".format(repo_path)
+
+    # update has_kk_keyword field first
+    if database_or_input_filename == "database":
+        reg_list = []
+        with open("{}/data/hilmi_stance/hilmi_keywords.txt".format(repo_path), "r", encoding="utf-8") as f:
+            for line in f:
+                if line:
+                    reg_list.append(line[:-1])
+            reg = re.compile("|".join(reg_list), flags=re.S|re.I)
+            #reg = "|".join(reg_list)
+
+        http_reg = re.compile(r"^(?!.*(https:|http:|www\.))", flags=re.S|re.I)
+
+        keyword_true_query = {"has_hilmi_keyword": None,
+                              "$and": [{"text": {"$regex": http_reg}},
+                                       {"text": {"$regex": reg}}]}
+        tweet_col.update_many(keyword_true_query, {"$set": {"has_hilmi_keyword": True}})
+        keyword_false_query = {"has_hilmi_keyword": None,
+                               "$or": [{"text": {"$not": {"$regex": http_reg}}},
+                                       {"text": {"$not": {"$regex": reg}}}]}
+        tweet_col.update_many(keyword_false_query, {"$set": {"has_hilmi_keyword": False}})
+
+    query = {"has_hilmi_keyword": True, "hilmi_relevant": None, "text": {"$nin": ["", None]}}
+
+elif task_name == "hilmi_stance":
+    label_list = ["pro", "against", "neutral"]
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+    encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_hilmi_stance_57.pt".format(repo_path)
+    classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_hilmi_stance_57.pt".format(repo_path)
+    query = {"has_hilmi_keyword": True, "hilmi_relevant": "relevant", "hilmi_stance": None, "text": {"$nin": ["", None]}}
+
+elif task_name == "uskudar_relevant":
+    label_list = ["relevant", "irrelevant"]
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+    encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_uskudar_relevant_53.pt".format(repo_path)
+    classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_uskudar_relevant_53.pt".format(repo_path)
+
+    # update has_kk_keyword field first
+    if database_or_input_filename == "database":
+        reg_list = []
+        with open("{}/data/uskudar_stance/uskudar_keywords.txt".format(repo_path), "r", encoding="utf-8") as f:
+            for line in f:
+                if line:
+                    reg_list.append(line[:-1])
+            reg = re.compile("|".join(reg_list), flags=re.S|re.I)
+            #reg = "|".join(reg_list)
+
+        http_reg = re.compile(r"^(?!.*(https:|http:|www\.))", flags=re.S|re.I)
+
+        keyword_true_query = {"has_uskudar_keyword": None,
+                              "$and": [{"text": {"$regex": http_reg}},
+                                       {"text": {"$regex": reg}}]}
+        tweet_col.update_many(keyword_true_query, {"$set": {"has_uskudar_keyword": True}})
+        keyword_false_query = {"has_uskudar_keyword": None,
+                               "$or": [{"text": {"$not": {"$regex": http_reg}}},
+                                       {"text": {"$not": {"$regex": reg}}}]}
+        tweet_col.update_many(keyword_false_query, {"$set": {"has_uskudar_keyword": False}})
+
+    query = {"has_uskudar_keyword": True, "uskudar_relevant": None, "text": {"$nin": ["", None]}}
+
+elif task_name == "uskudar_stance":
+    label_list = ["pro", "against", "neutral"]
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+    encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_uskudar_stance_57.pt".format(repo_path)
+    classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_uskudar_stance_57.pt".format(repo_path)
+    query = {"has_uskudar_keyword": True, "uskudar_relevant": "relevant", "uskudar_stance": None, "text": {"$nin": ["", None]}}
+
 else:
     raise("Task name {} is not known!".format(task_name))
 

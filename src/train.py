@@ -20,6 +20,7 @@ device_ids = [int(i) for i in sys.argv[4].split(",")]
 # MUST SET THESE VALUES
 max_seq_length = 64
 batch_size = 64
+dev_set_splitting = "random" # random, or any filename
 dev_ratio = 0.1
 
 repo_path = "/home/username/twitter_stance"
@@ -48,6 +49,34 @@ elif task_name == "kk_stance":
     label_list = ["pro", "against", "neutral"]
     label_to_idx = {"1": 0, "2": 1, "3": 2, "4": -1}
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+elif task_name == "serdil_relevant":
+    train_filename = repo_path + "/data/serdil_stance/chatgpt_annotation/train.json"
+    test_filename = repo_path + "/data/serdil_stance/annotation/test.json"
+    dev_set_splitting = repo_path + "/data/serdil_stance/annotation/dev.json"
+    label_list = ["relevant", "irrelevant"]
+    label_to_idx = {"1": 0, "2": 0, "3": 0, "4": 1}
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+elif task_name == "serdil_stance":
+    train_filename = repo_path + "/data/serdil_stance/chatgpt_annotation/train.json"
+    test_filename = repo_path + "/data/serdil_stance/annotation/test.json"
+    dev_set_splitting = repo_path + "/data/serdil_stance/annotation/dev.json"
+    label_list = ["pro", "against", "neutral"]
+    label_to_idx = {"1": 0, "2": 1, "3": 2, "4": -1}
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+elif task_name == "imamoglu_relevant":
+    train_filename = repo_path + "/data/imamoglu_stance/2023-08-29_annotation/train.json" # "/data/imamoglu_stance/chatgpt_annotation/train.json"
+    test_filename = repo_path + "/data/imamoglu_stance/2023-08-29_annotation/test.json" # "/data/imamoglu_stance/annotation/test.json"
+    # dev_set_splitting = repo_path + "/data/imamoglu_stance/annotation/dev.json"
+    label_list = ["relevant", "irrelevant"]
+    label_to_idx = {"1": 0, "2": 0, "3": 0, "4": 1}
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+elif task_name == "imamoglu_stance":
+    train_filename = repo_path + "/data/imamoglu_stance/2023-08-29_annotation/train.json" # "/data/imamoglu_stance/chatgpt_annotation/train.json"
+    test_filename = repo_path + "/data/imamoglu_stance/2023-08-29_annotation/test.json" # "/data/imamoglu_stance/annotation/test.json"
+    # dev_set_splitting = repo_path + "/data/imamoglu_stance/annotation/dev.json"
+    label_list = ["pro", "against", "neutral"]
+    label_to_idx = {"1": 0, "2": 1, "3": 2, "4": -1}
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
 else:
     raise("Task name {} is not known!".format(task_name))
 
@@ -60,7 +89,6 @@ binary = len(label_list) == 2
 learning_rate = 2e-5
 dev_metric = "f1_macro"
 num_epochs = 30
-dev_set_splitting = "random" # random, or any filename
 use_gpu = True
 # device_ids = [0, 1, 2, 3, 4, 5, 6, 7] # if not multi-gpu then pass a single number such as [0]
 positive_threshold = 0.5 # Outputted probabilities bigger than this number is considered positive in case of binary classifications
@@ -179,9 +207,9 @@ def build_model(train_examples, dev_examples, pretrained_model, n_epochs=10, cur
     encoder = AutoModel.from_pretrained(pretrained_model)
     classifier = torch.nn.Linear(encoder.config.hidden_size, 1 if binary else len(label_list))
 
-    train_dataset = TransformersData(train_examples, label_to_idx, tokenizer, binary=binary, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
+    train_dataset = TransformersData(train_examples, tokenizer, binary=binary, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
     train_dataloader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-    dev_dataset = TransformersData(dev_examples, label_to_idx, tokenizer, binary=binary, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
+    dev_dataset = TransformersData(dev_examples, tokenizer, binary=binary, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
     dev_dataloader = DataLoader(dataset=dev_dataset, batch_size=batch_size)
 
 
@@ -294,8 +322,8 @@ if __name__ == '__main__':
     classifier.eval()
 
     if predict:
-        test_examples = get_examples(test_filename, with_label=False)
-        test_dataset = TransformersData(test_examples, label_to_idx, tokenizer, binary=binary, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids, with_label=False)
+        test_examples = get_examples(test_filename, label_map=label_to_idx, with_label=False)
+        test_dataset = TransformersData(test_examples, tokenizer, binary=binary, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids, with_label=False)
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=batch_size)
 
         all_preds = model_predict(encoder, classifier, test_dataloader)
@@ -308,8 +336,8 @@ if __name__ == '__main__':
                 g.write(json.dumps(t) + "\n")
 
     else:
-        test_examples = get_examples(test_filename)
-        test_dataset = TransformersData(test_examples, label_to_idx, tokenizer, binary=binary, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
+        test_examples = get_examples(test_filename, label_map=label_to_idx)
+        test_dataset = TransformersData(test_examples, tokenizer, binary=binary, max_seq_length=max_seq_length, has_token_type_ids=has_token_type_ids)
         test_dataloader = DataLoader(dataset=test_dataset, batch_size=batch_size)
 
         result, test_loss = test_model(encoder, classifier, test_dataloader)
