@@ -31,14 +31,14 @@ if database_or_input_filename == "database":
 output_filename = "out.json"
 pretrained_transformers_model = "dbmdz/bert-base-turkish-128k-cased"
 max_seq_length = 64
-batch_size = 1024
-repo_path = "/home/username/twitter_stance"
+batch_size = 20
+repo_path = "/home/itopcu/twitter_stance"
 
 if task_name == "erdogan_relevant":
     label_list = ["relevant", "irrelevant"]
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
-    encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_erdogan_relevant_46.pt".format(repo_path)
-    classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_erdogan_relevant_46.pt".format(repo_path)
+    encoder_path = repo_path + "/models/" +  sys.argv[3]
+    classifier_path = repo_path + "/models/" +  sys.argv[4]
 
     # update has_erdogan_keyword field first
     if database_or_input_filename == "database":
@@ -77,15 +77,15 @@ if task_name == "erdogan_relevant":
 elif task_name == "erdogan_stance":
     label_list = ["pro", "against", "neutral"]
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
-    encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_erdogan_stance_45.pt".format(repo_path)
-    classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_erdogan_stance_45.pt".format(repo_path)
+    encoder_path = repo_path + "/models/" + sys.argv[3]
+    classifier_path = repo_path + "/models/"+ sys.argv[4]
     query = {"has_erdogan_keyword": True, "erdogan_relevant": "relevant", "erdogan_stance": None, "text": {"$nin": ["", None]}}
 
 elif task_name == "kk_relevant":
     label_list = ["relevant", "irrelevant"]
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
-    encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_kk_relevant_47.pt".format(repo_path)
-    classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_kk_relevant_47.pt".format(repo_path)
+    encoder_path = repo_path + "/models/"+ sys.argv[3]
+    classifier_path = repo_path + "/models/"+ sys.argv[4]
 
     # update has_kk_keyword field first
     if database_or_input_filename == "database":
@@ -121,15 +121,15 @@ elif task_name == "kk_relevant":
 elif task_name == "kk_stance":
     label_list = ["pro", "against", "neutral"]
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
-    encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_kk_stance_58.pt".format(repo_path)
-    classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_kk_stance_58.pt".format(repo_path)
+    encoder_path = repo_path + "/models/" + sys.argv[3]
+    classifier_path = repo_path + "/models/"+ sys.argv[4]
     query = {"has_kk_keyword": True, "kk_relevant": "relevant", "kk_stance": None, "text": {"$nin": ["", None]}}
 
 elif task_name == "serdil_relevant":
     label_list = ["relevant", "irrelevant"]
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
-    encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_serdil_relevant_51.pt".format(repo_path)
-    classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_serdil_relevant_51.pt".format(repo_path)
+    encoder_path = repo_path + "/models/" + sys.argv[3]
+    classifier_path = repo_path + "/models/"+ sys.argv[4]
 
     # update has_kk_keyword field first
     if database_or_input_filename == "database":
@@ -158,8 +158,8 @@ elif task_name == "serdil_relevant":
 elif task_name == "serdil_stance":
     label_list = ["pro", "against", "neutral"]
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
-    encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_serdil_stance_58.pt".format(repo_path)
-    classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_serdil_stance_58.pt".format(repo_path)
+    encoder_path = repo_path + "/models/" + sys.argv[3]
+    classifier_path = repo_path + "/models/" + sys.argv[4]
     # query = {"has_serdil_keyword": True, "serdil_relevant": "relevant", "serdil_stance": None, "text": {"$nin": ["", None]}}
     query = {"kadikoy_tweets_to_be_processed": True, "has_serdil_keyword": True, "serdil_relevant": "relevant", "serdil_stance": None, "text": {"$nin": ["", None]}}
 
@@ -168,8 +168,8 @@ elif task_name == "imamoglu_relevant":
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
     # encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_imamoglu_relevant_53.pt".format(repo_path)
     # classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_imamoglu_relevant_53.pt".format(repo_path)
-    encoder_path = "{}/models/best_models/2023-08-29_imamoglu/encoder_dbmdz_bert-base-turkish-128k-cased_imamoglu_relevant_46.pt".format(repo_path)
-    classifier_path = "{}/models/best_models/2023-08-29_imamoglu/classifier_dbmdz_bert-base-turkish-128k-cased_imamoglu_relevant_46.pt".format(repo_path)
+    encoder_path = repo_path + "/models/" + sys.argv[3]
+    classifier_path = repo_path + "/models/" + sys.argv[4]
 
     # update has_kk_keyword field first
     if database_or_input_filename == "database":
@@ -199,15 +199,15 @@ elif task_name == "imamoglu_stance":
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
     # encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_imamoglu_stance_57.pt".format(repo_path)
     # classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_imamoglu_stance_57.pt".format(repo_path)
-    encoder_path = "{}/models/best_models/2023-08-29_imamoglu/encoder_dbmdz_bert-base-turkish-128k-cased_imamoglu_stance_52.pt".format(repo_path)
-    classifier_path = "{}/models/best_models/2023-08-29_imamoglu/classifier_dbmdz_bert-base-turkish-128k-cased_imamoglu_stance_52.pt".format(repo_path)
+    encoder_path = repo_path + "/models/" + sys.argv[3]
+    classifier_path = repo_path + "/models/" + sys.argv[4]
     query = {"has_imam_keyword": True, "imamoglu_relevant": "relevant", "imamoglu_stance": None, "text": {"$nin": ["", None]}}
 
 elif task_name == "hilmi_relevant":
     label_list = ["relevant", "irrelevant"]
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
-    encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_hilmi_relevant_53.pt".format(repo_path)
-    classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_hilmi_relevant_53.pt".format(repo_path)
+    encoder_path = repo_path + "/models/" + sys.argv[3]
+    classifier_path = repo_path + "/models/" + sys.argv[4]
 
     # update has_kk_keyword field first
     if database_or_input_filename == "database":
@@ -235,15 +235,15 @@ elif task_name == "hilmi_relevant":
 elif task_name == "hilmi_stance":
     label_list = ["pro", "against", "neutral"]
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
-    encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_hilmi_stance_57.pt".format(repo_path)
-    classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_hilmi_stance_57.pt".format(repo_path)
+    encoder_path =repo_path + "/models/" + sys.argv[3]
+    classifier_path = repo_path + "/models/" + sys.argv[4]
     query = {"has_hilmi_keyword": True, "hilmi_relevant": "relevant", "hilmi_stance": None, "text": {"$nin": ["", None]}}
 
 elif task_name == "uskudar_relevant":
     label_list = ["relevant", "irrelevant"]
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
-    encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_uskudar_relevant_53.pt".format(repo_path)
-    classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_uskudar_relevant_53.pt".format(repo_path)
+    encoder_path = repo_path + "/models/" + sys.argv[3]
+    classifier_path = repo_path + "/models/" + sys.argv[4]
 
     # update has_kk_keyword field first
     if database_or_input_filename == "database":
@@ -271,9 +271,27 @@ elif task_name == "uskudar_relevant":
 elif task_name == "uskudar_stance":
     label_list = ["pro", "against", "neutral"]
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
-    encoder_path = "{}/models/best_models/encoder_dbmdz_bert-base-turkish-128k-cased_uskudar_stance_57.pt".format(repo_path)
-    classifier_path = "{}/models/best_models/classifier_dbmdz_bert-base-turkish-128k-cased_uskudar_stance_57.pt".format(repo_path)
+    encoder_path = repo_path + "/models/" + sys.argv[3]
+    classifier_path = repo_path + "/models/" + sys.argv[4]
     query = {"has_uskudar_keyword": True, "uskudar_relevant": "relevant", "uskudar_stance": None, "text": {"$nin": ["", None]}}
+elif task_name == "soyer_stance":
+    label_list = ["pro", "against", "neutral"]
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+    encoder_path = repo_path + "/models/" + sys.argv[3]
+    classifier_path = repo_path + "/models/" + sys.argv[4]
+    query = {"has_uskudar_keyword": True, "uskudar_relevant": "relevant", "uskudar_stance": None, "text": {"$nin": ["", None]}}
+elif task_name == "uskudar_stance":
+    label_list = ["pro", "against", "neutral"]
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+    encoder_path = repo_path + "/models/" + sys.argv[3]
+    classifier_path = repo_path + "/models/" + sys.argv[4]
+    query = {"has_uskudar_keyword": True, "uskudar_relevant": "relevant", "uskudar_stance": None, "text": {"$nin": ["", None]}}    
+elif task_name == "soyer_stance":
+    label_list = ["pro", "against", "neutral"]
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+    encoder_path = repo_path + "/models/" + sys.argv[3]
+    classifier_path = repo_path + "/models/" + sys.argv[4]
+    query = {"has_soyer_keyword": True, "soyer_relevant": "relevant", "soyer_stance": None, "text": {"$nin": ["", None]}}  
 
 else:
     raise("Task name {} is not known!".format(task_name))
@@ -285,7 +303,7 @@ if database_or_input_filename == "database":
         print("No documents to predict. Exiting...")
         sys.exit(0)
 
-device = torch.device("cuda")
+device = torch.device("cuda:0")
 
 # OPTIONS
 return_probabilities = False
@@ -425,7 +443,7 @@ if __name__ == "__main__":
         curr_batch = []
         for i, line in enumerate(input_file):
             data = json.loads(line)
-            id_str, text = read_json_line(data)
+            id_str, text = data["_id"],data["text"]
 
             if len(text) > 0:
                 total_processed += 1
@@ -460,4 +478,5 @@ if __name__ == "__main__":
 
         output_file.close()
 
-    print("Processed {} tweets in total.".format(str(total_processed)))
+    print("Processed {} tweets in total.".format(str(total_processed))
+          

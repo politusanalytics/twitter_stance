@@ -1,7 +1,6 @@
 from sklearn.metrics import precision_recall_fscore_support, matthews_corrcoef
 import torch
 from transformers import AutoModel, AutoTokenizer, get_linear_schedule_with_warmup
-from data import get_examples, TransformersData
 from torch.utils.data import DataLoader
 import numpy as np
 import time
@@ -9,13 +8,67 @@ import random
 from tqdm import tqdm
 import json
 import sys
-# import pandas as pd
+import pandas as pd
+#DATA
+
+class TransformersData(torch.utils.data.Dataset):
+    def __init__(self, examples, tokenizer, binary=False, max_seq_length=512, has_token_type_ids=False, with_label=True):
+        self.examples = examples
+        self.binary = binary
+
+        self.max_seq_length = max_seq_length
+        self.tokenizer = tokenizer
+        self.with_label = with_label
+        self.has_token_type_ids = has_token_type_ids
+
+    def __len__(self):
+        return len(self.examples)
+
+    def __getitem__(self, idx):
+        ex = self.examples[idx]
+        encoded_input = self.tokenizer(ex[0], padding="max_length", truncation=True, max_length=self.max_seq_length)
+        input_ids = torch.tensor(encoded_input["input_ids"], dtype=torch.long)
+        input_mask = torch.tensor(encoded_input["attention_mask"], dtype=torch.long)
+        if self.has_token_type_ids:
+            token_type_ids = torch.tensor(encoded_input["token_type_ids"], dtype=torch.long)
+
+        if self.with_label:
+            if self.binary:
+                label_ids = torch.FloatTensor([ex[1]])
+            else:
+                label_ids = torch.tensor(ex[1], dtype=torch.long)
+
+            if self.has_token_type_ids:
+                return input_ids, input_mask, token_type_ids, label_ids
+            else:
+                return input_ids, input_mask, label_ids
+
+        if self.has_token_type_ids:
+            return input_ids, input_mask, token_type_ids
+        else:
+            return input_ids, input_mask
+
+
+def get_examples(filename, label_map, with_label=True):
+    examples = []
+    with open(filename, "r", encoding="utf-8") as f:
+        for line in f:
+            line = json.loads(line)
+            text = str(line["text"])
+            if with_label:
+                label = label_map[str(line["final"])]
+                if label != -1:
+                    examples.append([text, label])
+            else:
+                examples.append(text)
+    return examples
+
 
 # INPUTS
 pretrained_transformers_model = sys.argv[1] # For example: "xlm-roberta-base"
 seed = int(sys.argv[2])
 task_name = sys.argv[3]
-device_ids = [int(i) for i in sys.argv[4].split(",")]
+device_ids = [0]
 
 # MUST SET THESE VALUES
 max_seq_length = 64
@@ -23,59 +76,72 @@ batch_size = 64
 dev_set_splitting = "random" # random, or any filename
 dev_ratio = 0.1
 
-repo_path = "/home/username/twitter_stance"
+repo_path = "/home/itopcu/twitter_stance"
 
 if task_name == "erdogan_relevant":
-    train_filename = repo_path + "/data/erdogan_stance/adjudicated_20230126/train.json"
-    test_filename = repo_path + "/data/erdogan_stance/adjudicated_20230126/test.json"
+    train_filename = repo_path + "/data/" + str(sys.argv[4])
+    test_filename = repo_path + "/data/" + str(sys.argv[5])
     label_list = ["relevant", "irrelevant"]
     label_to_idx = {"1": 0, "2": 0, "3": 0, "4": 1}
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
 elif task_name == "erdogan_stance":
-    train_filename = repo_path + "/data/erdogan_stance/adjudicated_20230126/train.json"
-    test_filename = repo_path + "/data/erdogan_stance/adjudicated_20230126/test.json"
+    train_filename = repo_path + "/data/" + str(sys.argv[4])
+    test_filename = repo_path + "/data/" + str(sys.argv[5])
     label_list = ["pro", "against", "neutral"]
     label_to_idx = {"1": 0, "2": 1, "3": 2, "4": -1}
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
 elif task_name == "kk_relevant":
-    train_filename = repo_path + "/data/kilicdar_stance/3annotator_20230320/train.json"
-    test_filename = repo_path + "/data/kilicdar_stance/3annotator_20230320/test.json"
+    train_filename = repo_path + "/data/" + str(sys.argv[4])
+    test_filename = repo_path + "/data/" + str(sys.argv[5])
     label_list = ["relevant", "irrelevant"]
     label_to_idx = {"1": 0, "2": 0, "3": 0, "4": 1}
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
 elif task_name == "kk_stance":
-    train_filename = repo_path + "/data/kilicdar_stance/3annotator_20230320/train.json"
-    test_filename = repo_path + "/data/kilicdar_stance/3annotator_20230320/test.json"
+    train_filename = repo_path + "/data/" + str(sys.argv[4])
+    test_filename = repo_path + "/data/" + str(sys.argv[5])
     label_list = ["pro", "against", "neutral"]
     label_to_idx = {"1": 0, "2": 1, "3": 2, "4": -1}
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
 elif task_name == "serdil_relevant":
-    train_filename = repo_path + "/data/serdil_stance/chatgpt_annotation/train.json"
-    test_filename = repo_path + "/data/serdil_stance/annotation/test.json"
-    dev_set_splitting = repo_path + "/data/serdil_stance/annotation/dev.json"
+    train_filename = repo_path + "/data/" + str(sys.arg[4])
+    test_filename = repo_path + "/data/" + str(sys.arg[5])
+    dev_set_splitting = repo_path + "/data/" + str(sys.arg[6])
     label_list = ["relevant", "irrelevant"]
     label_to_idx = {"1": 0, "2": 0, "3": 0, "4": 1}
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
 elif task_name == "serdil_stance":
-    train_filename = repo_path + "/data/serdil_stance/chatgpt_annotation/train.json"
-    test_filename = repo_path + "/data/serdil_stance/annotation/test.json"
-    dev_set_splitting = repo_path + "/data/serdil_stance/annotation/dev.json"
+    train_filename = repo_path + "/data/" + str(sys.argv[4])
+    test_filename = repo_path + "/data/" + str(sys.argv[5])
+    dev_set_splitting = repo_path + "/data/" + str(sys.argv[6])
     label_list = ["pro", "against", "neutral"]
     label_to_idx = {"1": 0, "2": 1, "3": 2, "4": -1}
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
 elif task_name == "imamoglu_relevant":
-    train_filename = repo_path + "/data/imamoglu_stance/2023-08-29_annotation/train.json" # "/data/imamoglu_stance/chatgpt_annotation/train.json"
-    test_filename = repo_path + "/data/imamoglu_stance/2023-08-29_annotation/test.json" # "/data/imamoglu_stance/annotation/test.json"
+    train_filename = repo_path + "/data/" + str(sys.argv[4]) # "/data/imamoglu_stance/chatgpt_annotation/train.json"
+    test_filename = repo_path + "/data/" + str(sys.argv[5]) # "/data/imamoglu_stance/annotation/test.json"
     # dev_set_splitting = repo_path + "/data/imamoglu_stance/annotation/dev.json"
     label_list = ["relevant", "irrelevant"]
     label_to_idx = {"1": 0, "2": 0, "3": 0, "4": 1}
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
 elif task_name == "imamoglu_stance":
-    train_filename = repo_path + "/data/imamoglu_stance/2023-08-29_annotation/train.json" # "/data/imamoglu_stance/chatgpt_annotation/train.json"
-    test_filename = repo_path + "/data/imamoglu_stance/2023-08-29_annotation/test.json" # "/data/imamoglu_stance/annotation/test.json"
+    train_filename = repo_path + "/data/" + str(sys.argv[4]) # "/data/imamoglu_stance/chatgpt_annotation/train.json"
+    test_filename = repo_path + "/data/" + str(sys.argv[5]) # "/data/imamoglu_stance/annotation/test.json"
     # dev_set_splitting = repo_path + "/data/imamoglu_stance/annotation/dev.json"
     label_list = ["pro", "against", "neutral"]
     label_to_idx = {"1": 0, "2": 1, "3": 2, "4": -1}
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+elif task_name == "soyer_stance":
+    train_filename = repo_path + "/data/" + str(sys.argv[4]) # "/data/soyer_stance/chatgpt_annotation/train.json"
+    test_filename = repo_path + "/data/" + str(sys.argv[5]) # "/data/soyer_stance/annotation/test.json"
+    # dev_set_splitting = repo_path + "/data/soyer_stance/annotation/dev.json"
+    label_list = ["pro", "against", "neutral"]
+    label_to_idx = {"1": 0, "2": 1, "3": 2, "4": -1}
+    idx_to_label = {i: lab for i,lab in enumerate(label_list)}
+elif task_name == "soyer_relevant":
+    train_filename = repo_path + "/data/" + str(sys.argv[4])
+    test_filename = repo_path + "/data/" + str(sys.argv[5])
+    label_list = ["relevant", "irrelevant"]
+    label_to_idx = {"1": 0, "2": 0, "3": 0, "4": 1}
     idx_to_label = {i: lab for i,lab in enumerate(label_list)}
 else:
     raise("Task name {} is not known!".format(task_name))
@@ -214,7 +280,7 @@ def build_model(train_examples, dev_examples, pretrained_model, n_epochs=10, cur
 
 
     classifier.to(device)
-    if torch.cuda.device_count() > 1 and device.type == "cuda" and len(device_ids) > 1:
+    if torch.cuda.device_count() > 1 and device.type == "cuda:0" and len(device_ids) > 1:
         encoder = torch.nn.DataParallel(encoder, device_ids=device_ids)
     encoder.to(device)
 
